@@ -15,6 +15,7 @@ dnspython
 requests
 environs
 GitPython
+pubchempy
 beautifulsoup4
 aiohttp
 aiofiles
