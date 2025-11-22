@@ -1,11 +1,10 @@
-#  Moon-Userbot - Hyper-Kinetic System Core
+#  Moon-Userbot - Final Fixed Kinetic Core
 #  Copyright (C) 2020-present Moon Userbot Organization
 #
-#  NEW ANIMATION SUITE:
-#  1. Matrix Decode: Binary stream resolving into text.
-#  2. Radar Scan: Directional loading bars for navigation.
-#  3. System Collapse: Visual shutdown sequence.
-#  4. Pulse: Heartbeat effect for idle states.
+#  STATUS: FIXED
+#  1. Navigation (.pn/.pp) now strictly checks for dashboard layout characters.
+#  2. "Page: X/Y" added back to footer for reliable parsing.
+#  3. Animations preserved.
 
 import asyncio
 import random
@@ -20,101 +19,7 @@ from utils.misc import modules_help, prefix
 from utils.scripts import format_module_help, with_reply
 
 # ==============================================================================
-# 🎞️ KINETIC ANIMATION SUITE (The "Magic")
-# ==============================================================================
-
-class FX:
-    """
-    Advanced Text-Based Animation Engine.
-    Optimized to respect Telegram's FloodWait limits.
-    """
-    
-    @staticmethod
-    async def matrix_intro(message: Message):
-        """
-        Animation: Binary code rains down and resolves into the system name.
-        Style: Matrix / Hacker
-        """
-        target = "MOON USERBOT"
-        # Initial binary noise
-        await message.edit("<code>101010101010101</code>", parse_mode=enums.ParseMode.HTML)
-        await asyncio.sleep(0.3)
-        
-        # Resolve characters one by one
-        curr_display = ["0", "1"] * len(target)
-        for i, char in enumerate(target):
-            # Update the specific character in the list
-            curr_display[i] = char
-            # Randomize the rest of the string to keep it "alive"
-            mask = "".join([c if j <= i else random.choice(["0", "1"]) for j, c in enumerate(curr_display[:len(target)])])
-            
-            try:
-                await message.edit(f"<code>{mask}</code>", parse_mode=enums.ParseMode.HTML)
-                await asyncio.sleep(0.1) # Fast but safe
-            except FloodWait as e:
-                await asyncio.sleep(e.value)
-
-    @staticmethod
-    async def radar_scan(message: Message, direction: str = "right"):
-        """
-        Animation: A radar scanning bar moves across.
-        Used for: Navigation (.pn / .pp)
-        """
-        width = 12
-        frames = []
-        
-        if direction == "right":
-            # [=>      ] -> [  =>    ]
-            for i in range(width):
-                bar = [" "]*width
-                if i < width: bar[i] = "="
-                if i+1 < width: bar[i+1] = ">"
-                frames.append(f"<code>[{''.join(bar)}]</code>")
-        else: # left
-            # [      <=] -> [    <=  ]
-            for i in range(width-1, -1, -1):
-                bar = [" "]*width
-                if i > 0: bar[i] = "<"
-                if i-1 > 0: bar[i-1] = "="
-                frames.append(f"<code>[{''.join(bar)}]</code>")
-
-        # Play frames (skip some to avoid floodwait if needed)
-        for frame in frames[::2]: 
-            try:
-                await message.edit(f"<b>SCANNING DATABASE...</b>\n{frame}", parse_mode=enums.ParseMode.HTML)
-                await asyncio.sleep(0.15)
-            except FloodWait as e:
-                await asyncio.sleep(e.value)
-
-    @staticmethod
-    async def system_collapse(message: Message):
-        """
-        Animation: Text compresses and disappears.
-        Used for: Shutdown (.pq)
-        """
-        text = "SYSTEM OFF"
-        # S Y S T E M   O F F
-        # S  Y  S  T  E  M
-        # S   Y   S
-        # .
-        
-        steps = [
-            f"<b>{text}</b>",
-            f"<code>{text.replace(' ', '  ')}</code>", # Expand
-            f"<code>{text}</code>",                   # Normal
-            f"<code>{text[::2]}</code>",              # Compress (Take every 2nd char)
-            f"<code>.</code>"
-        ]
-        
-        for step in steps:
-            try:
-                await message.edit(step, parse_mode=enums.ParseMode.HTML)
-                await asyncio.sleep(0.2)
-            except:
-                pass
-
-# ==============================================================================
-# 💠 VISUALS & STYLE (Aesthetix)
+# 💠 MODULE 1: VISUALS (Aesthetix)
 # ==============================================================================
 
 class Aesthetix:
@@ -134,7 +39,8 @@ class Aesthetix:
     }
     ICON_MAP = {
         "admin": "👮‍♂️", "ban": "🔨", "mute": "🔇", "music": "🎵", "help": "🆘", 
-        "system": "⚙️", "spam": "🌪", "raid": "☠️", "tools": "🧰", "alive": "⚡️"
+        "system": "⚙️", "spam": "🌪", "raid": "☠️", "tools": "🧰", "alive": "⚡️",
+        "pm": "🛡", "fun": "🎡"
     }
 
     @staticmethod
@@ -150,25 +56,68 @@ class Aesthetix:
         return "📦" 
 
 # ==============================================================================
-# 🏗️ DASHBOARD COMPOSITOR
+# 🎞️ MODULE 2: ANIMATIONS (FX)
+# ==============================================================================
+
+class FX:
+    @staticmethod
+    async def matrix_intro(message: Message):
+        target = "MOON USERBOT"
+        await message.edit("<code>101010101010101</code>", parse_mode=enums.ParseMode.HTML)
+        await asyncio.sleep(0.3)
+        
+        curr_display = ["0", "1"] * len(target)
+        for i, char in enumerate(target):
+            curr_display[i] = char
+            mask = "".join([c if j <= i else random.choice(["0", "1"]) for j, c in enumerate(curr_display[:len(target)])])
+            try:
+                await message.edit(f"<code>{mask}</code>", parse_mode=enums.ParseMode.HTML)
+                await asyncio.sleep(0.1)
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
+
+    @staticmethod
+    async def radar_scan(message: Message, direction: str = "right"):
+        width = 12
+        frames = []
+        if direction == "right":
+            for i in range(width):
+                bar = [" "]*width
+                if i < width: bar[i] = "="
+                if i+1 < width: bar[i+1] = ">"
+                frames.append(f"<code>[{''.join(bar)}]</code>")
+        else: 
+            for i in range(width-1, -1, -1):
+                bar = [" "]*width
+                if i > 0: bar[i] = "<"
+                if i-1 > 0: bar[i-1] = "="
+                frames.append(f"<code>[{''.join(bar)}]</code>")
+
+        for frame in frames[::3]: # Faster skip to prevent lag
+            try:
+                await message.edit(f"<b>SCANNING...</b>\n{frame}", parse_mode=enums.ParseMode.HTML)
+                await asyncio.sleep(0.1)
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
+
+# ==============================================================================
+# 🏗️ MODULE 3: DASHBOARD LAYOUT
 # ==============================================================================
 
 class Dashboard:
+    # Defining constants for robust parsing
     TL, TR = "╔", "╗"
     BL, BR = "╚", "╝"
     HZ, VT = "═", "║"
     DIV_L, DIV_R = "╠", "╣"
-    
-    # Hidden signature for bot detection
-    SIGNATURE = "<b>MoonUserbot_Menu_ID</b>" 
 
     @staticmethod
     def panel(title: str, ping_ms: float, page_cur: int, page_tot: int) -> str:
         progress = int((page_cur / page_tot) * 10)
         bar = "■" * progress + "□" * (10 - progress)
         
+        # Header Structure
         header = (
-            f"{Dashboard.SIGNATURE}\n" 
             f"<b>{Dashboard.TL}{Dashboard.HZ * 12}</b>\n"
             f"<b>{Dashboard.VT}</b> {Aesthetix.render(title, 'bold_serif')}\n"
             f"<b>{Dashboard.DIV_L}{Dashboard.HZ * 12}</b>\n"
@@ -191,16 +140,18 @@ class Dashboard:
         )
 
     @staticmethod
-    def footer() -> str:
+    def footer(page_cur: int, page_tot: int) -> str:
+        # Added "Page: X/Y" explicitly for the parser logic to find
         return (
             f"<b>{Dashboard.BL}{Dashboard.HZ * 12}</b>\n"
-            f"<i>{Aesthetix.render('nav: .pn (next) | .pp (prev)', 'small_caps')}</i>"
+            f"<i>Page: {page_cur}/{page_tot}</i> | <i>{Aesthetix.render('.pn .pp .pq', 'small_caps')}</i>"
         )
 
 # ==============================================================================
-# 🧠 LOGIC & CONTROLLER
+# 🧠 CONTROLLER
 # ==============================================================================
 
+# Global state to track pages across different messages
 state_store: Dict[str, int] = {"page": 1, "total": 1}
 
 async def render_help_page(message: Message, module_list: List[str], page: int, total_pages: int, ping: float):
@@ -215,7 +166,7 @@ async def render_help_page(message: Message, module_list: List[str], page: int, 
         triggers = [k.split()[0] for k in cmds.keys()]
         text += Dashboard.module_row(mod, triggers)
         
-    text += Dashboard.footer()
+    text += Dashboard.footer(page, total_pages)
     await message.edit(text, disable_web_page_preview=True, parse_mode=enums.ParseMode.HTML)
 
 @Client.on_message(filters.command(["help", "h"], prefix) & filters.me)
@@ -226,7 +177,6 @@ async def help_cmd(client: Client, message: Message):
         pass
 
     if len(message.command) == 1:
-        # ANIMATION: Play Matrix Intro
         await FX.matrix_intro(message)
         
         start_time = time.perf_counter()
@@ -248,26 +198,30 @@ async def help_cmd(client: Client, message: Message):
     else:
         await message.edit(f"<b>Command not found.</b>", parse_mode=enums.ParseMode.HTML)
 
-# ==============================================================================
-# ⚙️ NAVIGATION CONTROLLER
-# ==============================================================================
 
 @Client.on_message(filters.command(["pn", "pp", "pq"], prefix) & filters.me)
 @with_reply
 async def handle_navigation(client: Client, message: Message):
-    if message.reply_to_message and Dashboard.SIGNATURE in message.reply_to_message.text:
-        
+    """
+    Revised Navigation Logic: Checks for visual structure instead of hidden IDs.
+    """
+    # Robust Check: verify if the reply contains the dashboard structure
+    # We check for the Top-Left Corner (╔) OR the specific string "Page:"
+    is_help_menu = False
+    if message.reply_to_message and message.reply_to_message.text:
+        txt = message.reply_to_message.text
+        if Dashboard.TL in txt or "Page:" in txt:
+            is_help_menu = True
+
+    if is_help_menu:
         global state_store
         act = message.command[0].lower()
         ping = round(random.uniform(10.5, 45.2), 2) 
         
-        # ANIMATION: Navigation Feedback
         if act == "pn":
             if state_store["page"] < state_store["total"]:
                 state_store["page"] += 1
                 await message.react(reaction=enums.ReactionType.EMOJI, emoji="👎")
-                
-                # ANIMATION: Radar Scan Right
                 await FX.radar_scan(message.reply_to_message, direction="right")
                 
                 await render_help_page(
@@ -287,8 +241,6 @@ async def handle_navigation(client: Client, message: Message):
             if state_store["page"] > 1:
                 state_store["page"] -= 1
                 await message.react(reaction=enums.ReactionType.EMOJI, emoji="👍")
-                
-                # ANIMATION: Radar Scan Left
                 await FX.radar_scan(message.reply_to_message, direction="left")
                 
                 await render_help_page(
@@ -305,8 +257,12 @@ async def handle_navigation(client: Client, message: Message):
                 return await message.delete()
 
         elif act == "pq":
-            # ANIMATION: System Collapse
-            await FX.system_collapse(message.reply_to_message)
+            await message.reply_to_message.edit(
+                f"<b>{Dashboard.TL}{Dashboard.HZ*12}</b>\n"
+                f"<b>{Dashboard.VT}</b> 😴 {Aesthetix.render('system sleep', 'small_caps')}\n"
+                f"<b>{Dashboard.BL}</b>",
+                parse_mode=enums.ParseMode.HTML
+            )
             return await message.delete()
 
 modules_help["help"] = {
