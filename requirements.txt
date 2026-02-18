@@ -25,3 +25,4 @@ lexica-api
 opencv-python
 ffprobe
 mediainfo
+aiosqlite
