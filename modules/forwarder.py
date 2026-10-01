@@ -1,3 +1,4 @@
+```python
 # This Module is a part of MoonUserbot and is used here for example
 import time
 import os
@@ -48,6 +49,16 @@ async def dl(client: Client, message: Message):
             file_text = selected_message.caption
 
             try:
+                # Check for and download the thumbnail from the original message
+                thumb_path = None
+                try:
+                    if getattr(selected_message, "video", None) and selected_message.video.thumbs:
+                        thumb_path = await client.download_media(selected_message.video.thumbs[0].file_id)
+                    elif getattr(selected_message, "document", None) and selected_message.document.thumbs:
+                        thumb_path = await client.download_media(selected_message.document.thumbs[0].file_id)
+                except Exception:
+                    pass
+
                 # Try to download the media
                 file = await client.download_media(
                     selected_message,
@@ -55,27 +66,49 @@ async def dl(client: Client, message: Message):
                     progress_args=(ms, c_time, f"`Trying to download...`"),
                 )
                 
-                # Simple check: If downloaded file is a video, send as video. Else send as document.
-                if file and str(file).lower().endswith((".mp4", ".mkv", ".webm", ".avi")):
+                if file and str(file).lower().endswith((".mp4", ".mkv", ".webm", ".avi", ".mov")):
+                    video_kwargs = {
+                        "caption": file_text,
+                        "progress": progress,
+                        "progress_args": (ms, c_time, f"`Uploading Video...`")
+                    }
+                    
+                    # Add thumbnail and metadata if available to render video beautifully
+                    if thumb_path:
+                        video_kwargs["thumb"] = thumb_path
+                    if getattr(selected_message, "video", None):
+                        if selected_message.video.width:
+                            video_kwargs["width"] = selected_message.video.width
+                        if selected_message.video.height:
+                            video_kwargs["height"] = selected_message.video.height
+                        if selected_message.video.duration:
+                            video_kwargs["duration"] = selected_message.video.duration
+
                     await client.send_video(
                         chat_id,
                         file,
-                        caption=file_text,
-                        progress=progress,
-                        progress_args=(ms, c_time, f"`Uploading...`"),
+                        **video_kwargs
                     )
                 else:
+                    doc_kwargs = {
+                        "caption": file_text,
+                        "progress": progress,
+                        "progress_args": (ms, c_time, f"`Uploading Document...`")
+                    }
+                    if thumb_path:
+                        doc_kwargs["thumb"] = thumb_path
+
                     await client.send_document(
                         chat_id,
                         file,
-                        caption=file_text,
-                        progress=progress,
-                        progress_args=(ms, c_time, f"`Uploading...`"),
+                        **doc_kwargs
                     )
                 
-                # Clean up the downloaded file
+                # Cleanup files to save space
                 os.remove(file)
-                
+                if thumb_path and os.path.exists(thumb_path):
+                    os.remove(thumb_path)
+                    
             except ValueError:
                 # If downloading is restricted or media is missing, try to copy the message
                 await client.copy_message(chat_id, from_chat, selected_id)
@@ -92,3 +125,4 @@ async def dl(client: Client, message: Message):
 modules_help["rdl"] = {
     "rdl channel_link message_id [number_of_messages]": "download restricted content. Note that number_of_messages is optional if you only want a single message to be downloaded, then don't provide it",
 }
+```
