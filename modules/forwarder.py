@@ -55,39 +55,22 @@ async def dl(client: Client, message: Message):
                     progress_args=(ms, c_time, f"`Trying to download...`"),
                 )
                 
-                # Check the media type to send it correctly (solves the document-only issue)
-                if selected_message.video:
+                # Simple check: If downloaded file is a video, send as video. Else send as document.
+                if file and str(file).lower().endswith((".mp4", ".mkv", ".webm", ".avi")):
                     await client.send_video(
                         chat_id,
-                        video=file,
+                        file,
                         caption=file_text,
                         progress=progress,
-                        progress_args=(ms, c_time, f"`Uploading Video...`"),
-                    )
-                elif selected_message.photo:
-                    await client.send_photo(
-                        chat_id,
-                        photo=file,
-                        caption=file_text,
-                        progress=progress,
-                        progress_args=(ms, c_time, f"`Uploading Photo...`"),
-                    )
-                elif selected_message.audio:
-                    await client.send_audio(
-                        chat_id,
-                        audio=file,
-                        caption=file_text,
-                        progress=progress,
-                        progress_args=(ms, c_time, f"`Uploading Audio...`"),
+                        progress_args=(ms, c_time, f"`Uploading...`"),
                     )
                 else:
-                    # Fallback for documents and other file types
                     await client.send_document(
                         chat_id,
-                        document=file,
+                        file,
                         caption=file_text,
                         progress=progress,
-                        progress_args=(ms, c_time, f"`Uploading Document...`"),
+                        progress_args=(ms, c_time, f"`Uploading...`"),
                     )
                 
                 # Clean up the downloaded file
