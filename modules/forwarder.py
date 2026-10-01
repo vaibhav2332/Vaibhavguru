@@ -2,7 +2,7 @@ import os
 import asyncio
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message
-from pyrogram.errors import MessageProtected, FloodWait
+from pyrogram.errors import FloodWait
 
 from utils.misc import modules_help, prefix
 
@@ -26,7 +26,7 @@ async def forward_restricted(client: Client, message: Message):
         await message.edit("<b>Error:</b> {how_many} must be a valid number.", parse_mode=enums.ParseMode.HTML)
         return
 
-    # Handle negative numeric chat IDs (Pyrogram needs them as integers)
+    # Handle negative numeric chat IDs 
     if from_chat.lstrip("-").isdigit():
         from_chat = int(from_chat)
 
@@ -61,49 +61,62 @@ async def forward_restricted(client: Client, message: Message):
             await msg.copy(message.chat.id)
             success += 1
             
-        except MessageProtected:
-            # 2. Bypass restriction: manually download and re-upload
-            try:
-                if msg.media:
-                    # Download to local storage
-                    file_path = await client.download_media(msg)
-                    caption = msg.caption.html if msg.caption else ""
-                    
-                    # Upload based on media type
-                    if msg.photo:
-                        await client.send_photo(message.chat.id, file_path, caption=caption, parse_mode=enums.ParseMode.HTML)
-                    elif msg.video:
-                        await client.send_video(message.chat.id, file_path, caption=caption, parse_mode=enums.ParseMode.HTML)
-                    elif msg.document:
-                        await client.send_document(message.chat.id, file_path, caption=caption, parse_mode=enums.ParseMode.HTML)
-                    elif msg.audio:
-                        await client.send_audio(message.chat.id, file_path, caption=caption, parse_mode=enums.ParseMode.HTML)
-                    elif msg.animation:
-                        await client.send_animation(message.chat.id, file_path, caption=caption, parse_mode=enums.ParseMode.HTML)
-                    elif msg.voice:
-                        await client.send_voice(message.chat.id, file_path, caption=caption, parse_mode=enums.ParseMode.HTML)
-                    
-                    # Cleanup file after sending to save storage
-                    if file_path and os.path.exists(file_path):
-                        os.remove(file_path)
-                
-                elif msg.text:
-                    await client.send_message(message.chat.id, msg.text.html, parse_mode=enums.ParseMode.HTML)
-                
-                success += 1
-                
-            except Exception:
-                failed += 1
-                
         except FloodWait as e:
             # Telegram rate limit. Wait it out, then count as failed so it doesn't crash the loop.
             await asyncio.sleep(e.value)
             failed += 1 
             
         except Exception:
-            failed += 1
+            # 2. Bypass restriction: manually download and re-upload (catches any restricted/forbidden error)
+            try:
+                if msg.media:
+                    # Download to local storage
+                    file_path = await client.download_media(msg)
+                    
+                    kwargs = {}
+                    if msg.caption:
+                        kwargs["caption"] = msg.caption
+                        # Safely preserve formatting entities for Pyrogram v2
+                        if hasattr(msg, "caption_entities") and msg.caption_entities:
+                            kwargs["caption_entities"] = msg.caption_entities
+                        elif hasattr(msg, "entities") and msg.entities:
+                            kwargs["caption_entities"] = msg.entities
+                    
+                    # Upload based on media type
+                    if msg.photo:
+                        await client.send_photo(message.chat.id, file_path, **kwargs)
+                    elif msg.video:
+                        await client.send_video(message.chat.id, file_path, **kwargs)
+                    elif msg.document:
+                        await client.send_document(message.chat.id, file_path, **kwargs)
+                    elif msg.audio:
+                        await client.send_audio(message.chat.id, file_path, **kwargs)
+                    elif msg.animation:
+                        await client.send_animation(message.chat.id, file_path, **kwargs)
+                    elif msg.voice:
+                        await client.send_voice(message.chat.id, file_path, **kwargs)
+                    
+                    # Cleanup file after sending to save storage
+                    if file_path and os.path.exists(file_path):
+                        os.remove(file_path)
+                
+                elif msg.text:
+                    kwargs = {}
+                    if hasattr(msg, "entities") and msg.entities:
+                        kwargs["entities"] = msg.entities
+                        
+                    await client.send_message(message.chat.id, msg.text, **kwargs)
+                
+                success += 1
+                
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
+                failed += 1
+                
+            except Exception:
+                failed += 1
 
-        # Update stats every 5 messages to avoid Telegram flood limits on message edits
+        # Update stats every 5 messages to avoid Telegram flood limits on edits
         if i % 5 == 0 or i == total:
             try:
                 await status_msg.edit(
