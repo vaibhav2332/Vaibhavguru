@@ -66,23 +66,31 @@ async def dl(client: Client, message: Message):
                     progress_args=(ms, c_time, f"`Trying to download...`"),
                 )
                 
-                if file and str(file).lower().endswith((".mp4", ".mkv", ".webm", ".avi", ".mov")):
+                # Directly check if Telegram identifies the original message as a video
+                is_video = getattr(selected_message, "video", None) is not None
+                
+                if is_video:
+                    # Force .mp4 extension locally so Pyrogram API doesn't mistake it for a document during upload
+                    if not str(file).lower().endswith((".mp4", ".mkv", ".webm", ".avi", ".mov")):
+                        new_file = f"{file}.mp4"
+                        os.rename(file, new_file)
+                        file = new_file
+
                     video_kwargs = {
                         "caption": file_text,
                         "progress": progress,
                         "progress_args": (ms, c_time, f"`Uploading Video...`")
                     }
                     
-                    # Add thumbnail and metadata if available to render video beautifully
+                    # Pass the thumbnail and original video dimensions
                     if thumb_path:
                         video_kwargs["thumb"] = thumb_path
-                    if getattr(selected_message, "video", None):
-                        if selected_message.video.width:
-                            video_kwargs["width"] = selected_message.video.width
-                        if selected_message.video.height:
-                            video_kwargs["height"] = selected_message.video.height
-                        if selected_message.video.duration:
-                            video_kwargs["duration"] = selected_message.video.duration
+                    if selected_message.video.width:
+                        video_kwargs["width"] = selected_message.video.width
+                    if selected_message.video.height:
+                        video_kwargs["height"] = selected_message.video.height
+                    if selected_message.video.duration:
+                        video_kwargs["duration"] = selected_message.video.duration
 
                     await client.send_video(
                         chat_id,
@@ -105,7 +113,8 @@ async def dl(client: Client, message: Message):
                     )
                 
                 # Cleanup files to save space
-                os.remove(file)
+                if os.path.exists(file):
+                    os.remove(file)
                 if thumb_path and os.path.exists(thumb_path):
                     os.remove(thumb_path)
                     
