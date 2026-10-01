@@ -1,4 +1,3 @@
-```python
 # This Module is a part of MoonUserbot and is used here for example
 import time
 import os
@@ -134,4 +133,3 @@ async def dl(client: Client, message: Message):
 modules_help["rdl"] = {
     "rdl channel_link message_id [number_of_messages]": "download restricted content. Note that number_of_messages is optional if you only want a single message to be downloaded, then don't provide it",
 }
-```
