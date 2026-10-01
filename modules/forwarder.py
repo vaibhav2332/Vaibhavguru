@@ -10,15 +10,15 @@ from utils.misc import modules_help, prefix
 async def forward_restricted(client: Client, message: Message):
     args = message.command
     
-    # Check if we have both arguments
     if len(args) < 3:
         await message.edit(
-            "<b>Usage:</b> <code>.forward {from_chat} {how_many}</code>\n<i>Example: .forward @somechannel 10</i>", 
+            "<b>Usage:</b> <code>.forward {chat_id/link} {how_many}</code>\n"
+            "<i>Example: .forward https://t.me/c/4394523374/3 2</i>", 
             parse_mode=enums.ParseMode.HTML
         )
         return
 
-    from_chat = args[1]
+    raw_chat = args[1]
     
     try:
         limit = int(args[2])
@@ -26,57 +26,84 @@ async def forward_restricted(client: Client, message: Message):
         await message.edit("<b>Error:</b> {how_many} must be a valid number.", parse_mode=enums.ParseMode.HTML)
         return
 
-    # Handle negative numeric chat IDs 
-    if from_chat.lstrip("-").isdigit():
-        from_chat = int(from_chat)
+    chat_id = raw_chat
+    start_msg_id = None
+
+    # --- SMART LINK PARSER ---
+    if raw_chat.startswith("https://t.me/c/"):
+        # Parses private links like: https://t.me/c/1234567890/3
+        parts = raw_chat.split("/")
+        if len(parts) >= 5:
+            chat_id = int(f"-100{parts[4]}") # Private chats require -100 prefix
+        if len(parts) >= 6 and parts[5].isdigit():
+            start_msg_id = int(parts[5])
+            
+    elif raw_chat.startswith("https://t.me/"):
+        # Parses public links like: https://t.me/username/3
+        parts = raw_chat.split("/")
+        if len(parts) >= 4:
+            chat_id = parts[3]
+        if len(parts) >= 5 and parts[4].isdigit():
+            start_msg_id = int(parts[4])
+            
+    elif str(raw_chat).lstrip("-").isdigit():
+        # Parses raw numeric IDs
+        chat_id = int(raw_chat)
 
     status_msg = await message.edit(
-        f"⏳ <b>Fetching {limit} messages from {from_chat}...</b>", 
+        f"⏳ <b>Fetching messages...</b>", 
         parse_mode=enums.ParseMode.HTML
     )
 
     try:
         messages = []
-        # Fetch chat history
-        async for msg in client.get_chat_history(from_chat, limit=limit):
-            messages.append(msg)
+        if start_msg_id:
+            # If a specific message link was given, fetch a range starting from there
+            msg_ids = list(range(start_msg_id, start_msg_id + limit))
+            fetched = await client.get_messages(chat_id, msg_ids)
+            
+            if not isinstance(fetched, list):
+                fetched = [fetched]
+            messages = [m for m in fetched if m and not m.empty]
+        else:
+            # If just a chat ID/username was given, fetch the latest history
+            async for msg in client.get_chat_history(chat_id, limit=limit):
+                messages.append(msg)
+            messages.reverse()
+            
     except Exception as e:
         await status_msg.edit(f"❌ <b>Error fetching chat:</b> <code>{e}</code>", parse_mode=enums.ParseMode.HTML)
         return
 
-    # Reverse the list so we forward the oldest messages first, keeping chronological order
-    messages.reverse() 
-    
+    if not messages:
+        await status_msg.edit("❌ <b>Could not find any messages. Ensure you are in the channel.</b>", parse_mode=enums.ParseMode.HTML)
+        return
+
     total = len(messages)
     success = 0
     failed = 0
 
     for i, msg in enumerate(messages, 1):
-        if msg.empty:
-            failed += 1
-            continue
-
         try:
-            # 1. Try Pyrogram's native copy (instant, works if chat isn't restricted)
+            # 1. Try instant Pyrogram copy first
             await msg.copy(message.chat.id)
             success += 1
             
         except FloodWait as e:
-            # Telegram rate limit. Wait it out, then count as failed so it doesn't crash the loop.
             await asyncio.sleep(e.value)
             failed += 1 
             
         except Exception:
-            # 2. Bypass restriction: manually download and re-upload (catches any restricted/forbidden error)
+            # 2. RESTRICTED BYPASS: Download media and re-upload with captions intact
             try:
                 if msg.media:
-                    # Download to local storage
+                    # Download file to local storage
                     file_path = await client.download_media(msg)
                     
                     kwargs = {}
                     if msg.caption:
                         kwargs["caption"] = msg.caption
-                        # Safely preserve formatting entities for Pyrogram v2
+                        # Preserve bold, italic, links, etc.
                         if hasattr(msg, "caption_entities") and msg.caption_entities:
                             kwargs["caption_entities"] = msg.caption_entities
                         elif hasattr(msg, "entities") and msg.entities:
@@ -96,7 +123,7 @@ async def forward_restricted(client: Client, message: Message):
                     elif msg.voice:
                         await client.send_voice(message.chat.id, file_path, **kwargs)
                     
-                    # Cleanup file after sending to save storage
+                    # Delete the file immediately after sending to save space
                     if file_path and os.path.exists(file_path):
                         os.remove(file_path)
                 
@@ -116,7 +143,7 @@ async def forward_restricted(client: Client, message: Message):
             except Exception:
                 failed += 1
 
-        # Update stats every 5 messages to avoid Telegram flood limits on edits
+        # Live stats update
         if i % 5 == 0 or i == total:
             try:
                 await status_msg.edit(
@@ -131,7 +158,6 @@ async def forward_restricted(client: Client, message: Message):
             except Exception:
                 pass
 
-    # Final success message
     await status_msg.edit(
         f"🎉 <b>Forwarding Completed!</b>\n\n"
         f"📥 <b>Total Fetched:</b> {total}\n"
@@ -140,7 +166,6 @@ async def forward_restricted(client: Client, message: Message):
         parse_mode=enums.ParseMode.HTML
     )
 
-# Add module instructions
 modules_help["forward"] = {
-    "forward [chat_id/username] [limit]": "Forwards messages (bypasses restricted content) to the current chat with live stats."
+    "forward [chat_id/username/link] [limit]": "Forwards restricted messages (extracts files + captions) starting from a link or chat ID."
 }
