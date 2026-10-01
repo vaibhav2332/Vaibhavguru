@@ -126,6 +126,10 @@ async def forward_restricted(client: Client, message: Message):
                     # Delete the file immediately after sending to save space
                     if file_path and os.path.exists(file_path):
                         os.remove(file_path)
+                        
+                    # Add a small delay to avoid triggering Telegram's download flood limits
+                    await asyncio.sleep(2) 
+
                 
                 elif msg.text:
                     kwargs = {}
