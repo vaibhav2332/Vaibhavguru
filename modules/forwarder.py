@@ -9,7 +9,6 @@ from pyrogram.errors import UserAlreadyParticipant, ChatForwardsRestricted
 from utils.misc import modules_help, prefix
 from utils.scripts import progress, format_exc
 
-
 @Client.on_message(filters.command("rdl", prefix) & filters.me)
 async def dl(client: Client, message: Message):
     # Extract command arguments
@@ -55,19 +54,50 @@ async def dl(client: Client, message: Message):
                     progress=progress,
                     progress_args=(ms, c_time, f"`Trying to download...`"),
                 )
-                await client.send_document(
-                    chat_id,
-                    file,
-                    caption=file_text,
-                    progress=progress,
-                    progress_args=(ms, c_time, f"`Uploading...`"),
-                )
+                
+                # Check the media type to send it correctly (solves the document-only issue)
+                if selected_message.video:
+                    await client.send_video(
+                        chat_id,
+                        video=file,
+                        caption=file_text,
+                        progress=progress,
+                        progress_args=(ms, c_time, f"`Uploading Video...`"),
+                    )
+                elif selected_message.photo:
+                    await client.send_photo(
+                        chat_id,
+                        photo=file,
+                        caption=file_text,
+                        progress=progress,
+                        progress_args=(ms, c_time, f"`Uploading Photo...`"),
+                    )
+                elif selected_message.audio:
+                    await client.send_audio(
+                        chat_id,
+                        audio=file,
+                        caption=file_text,
+                        progress=progress,
+                        progress_args=(ms, c_time, f"`Uploading Audio...`"),
+                    )
+                else:
+                    # Fallback for documents and other file types
+                    await client.send_document(
+                        chat_id,
+                        document=file,
+                        caption=file_text,
+                        progress=progress,
+                        progress_args=(ms, c_time, f"`Uploading Document...`"),
+                    )
+                
+                # Clean up the downloaded file
                 os.remove(file)
+                
             except ValueError:
-                # If downloading is restricted, try to copy the message
+                # If downloading is restricted or media is missing, try to copy the message
                 await client.copy_message(chat_id, from_chat, selected_id)
             except ChatForwardsRestricted:
-                # If downloading is restricted, try to copy the message
+                # If forward restricted is caught during copy fallback
                 pass
 
             selected_id += 1
@@ -75,7 +105,6 @@ async def dl(client: Client, message: Message):
         await ms.delete()
     except Exception as e:
         await message.edit_text(format_exc(e))
-
 
 modules_help["rdl"] = {
     "rdl channel_link message_id [number_of_messages]": "download restricted content. Note that number_of_messages is optional if you only want a single message to be downloaded, then don't provide it",
